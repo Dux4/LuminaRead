@@ -1,5 +1,5 @@
 import React from 'react';
-import { StyleSheet, View, SafeAreaView, useWindowDimensions, StatusBar } from 'react-native';
+import { StyleSheet, View, SafeAreaView, useWindowDimensions, StatusBar, Platform } from 'react-native';
 import { AppProvider, useApp } from './src/context/AppContext';
 import { Header } from './src/components/Header';
 import { Sidebar } from './src/components/Sidebar';
@@ -34,7 +34,7 @@ const MainLayout: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <StatusBar barStyle="light-content" backgroundColor={AppleColors.background} />
+      <StatusBar barStyle="light-content" backgroundColor={AppleColors.background} translucent={false} />
       {/* Header bar (Not shown in reader mode for full immersion) */}
       {activeView !== 'reader' ? <Header /> : null}
 
@@ -64,6 +64,7 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: AppleColors.background,
+    paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 24) : 0,
   },
   desktopMainRow: {
     flex: 1,

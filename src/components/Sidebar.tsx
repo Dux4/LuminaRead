@@ -213,10 +213,11 @@ const styles = StyleSheet.create({
   // Mobile Bottom Bar
   bottomBarContainer: {
     flexDirection: 'row',
-    backgroundColor: 'rgba(18, 18, 24, 0.95)',
+    backgroundColor: 'rgba(18, 18, 24, 0.98)',
     borderTopWidth: 1,
     borderTopColor: AppleColors.surfaceBorder,
-    paddingVertical: 10,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'ios' ? 26 : 16,
     paddingHorizontal: 12,
     justifyContent: 'space-around',
   },

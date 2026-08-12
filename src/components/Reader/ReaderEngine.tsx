@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,11 +15,13 @@ import {
   List,
   Bookmark as BookmarkIcon,
   Settings as SettingsIcon,
-  Type,
-  Sun,
-  Moon,
   Zap,
   Check,
+  Sparkles,
+  Award,
+  PauseCircle,
+  PlayCircle,
+  CheckCircle2,
 } from 'lucide-react-native';
 import { useApp } from '../../context/AppContext';
 import { AppleColors } from '../../theme/colors';
@@ -34,21 +36,42 @@ export const ReaderEngine: React.FC = () => {
     settings,
     updateSettings,
     setActiveView,
+    gamification,
   } = useApp();
 
   const [showTocModal, setShowTocModal] = useState<boolean>(false);
   const [showSettingsModal, setShowSettingsModal] = useState<boolean>(false);
   const [sessionSeconds, setSessionSeconds] = useState<number>(0);
+  const [isIdle, setIsIdle] = useState<boolean>(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const scrollViewRef = useRef<ScrollView>(null);
+  const lastInteractionTimeRef = useRef<number>(Date.now());
 
-  // Active reading timer
+  // Reset idle timer on user touch/scroll
+  const registerUserActivity = useCallback(() => {
+    lastInteractionTimeRef.current = Date.now();
+    if (isIdle) {
+      setIsIdle(false);
+    }
+  }, [isIdle]);
+
+  // Active Focus & Anti-Fraud Idle Timer (Pauses if inactive for > 90 seconds)
   useEffect(() => {
     const timer = setInterval(() => {
+      const timeSinceLastInteraction = Date.now() - lastInteractionTimeRef.current;
+      
+      // Auto pause if idle > 90s
+      if (timeSinceLastInteraction > 90000) {
+        if (!isIdle) {
+          setIsIdle(true);
+        }
+        return;
+      }
+
       setSessionSeconds(prev => {
         const next = prev + 1;
-        // Every 30 seconds, record progress to Context (granting XP & saving streak)
+        // Record progress & grant XP every 30 seconds of real active reading
         if (next % 30 === 0) {
           recordReadingTime(30);
         }
@@ -57,7 +80,7 @@ export const ReaderEngine: React.FC = () => {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [recordReadingTime]);
+  }, [isIdle, recordReadingTime]);
 
   if (!activeBook || !activeBook.chapters || activeBook.chapters.length === 0) {
     return (
@@ -82,10 +105,27 @@ export const ReaderEngine: React.FC = () => {
 
   const triggerToast = (msg: string) => {
     setToastMessage(msg);
-    setTimeout(() => setToastMessage(null), 2500);
+    setTimeout(() => setToastMessage(null), 3000);
+  };
+
+  // Creative "Absorver Conhecimento" Chapter Finish Button Action
+  const handleCompleteChapter = () => {
+    registerUserActivity();
+    
+    // Explicitly grant bonus XP (+50 XP for finishing chapter)
+    recordReadingTime(120); // 2 mins equivalent bonus XP
+
+    const nextIndex = Math.min(totalChapters - 1, currentChapterIndex + 1);
+    const percent = Math.round(((nextIndex + 1) / totalChapters) * 100);
+    
+    updateReadingProgress(activeBook.id, nextIndex, percent, nextIndex + 1);
+    triggerToast('✨ +50 XP Absorvidos! Capítulo Registrado na Mente! 🎓');
+    
+    scrollViewRef.current?.scrollTo({ y: 0, animated: true });
   };
 
   const handleNextChapter = () => {
+    registerUserActivity();
     if (currentChapterIndex < totalChapters - 1) {
       const nextIndex = currentChapterIndex + 1;
       const percent = Math.round(((nextIndex + 1) / totalChapters) * 100);
@@ -95,6 +135,7 @@ export const ReaderEngine: React.FC = () => {
   };
 
   const handlePrevChapter = () => {
+    registerUserActivity();
     if (currentChapterIndex > 0) {
       const prevIndex = currentChapterIndex - 1;
       const percent = Math.round(((prevIndex + 1) / totalChapters) * 100);
@@ -104,6 +145,7 @@ export const ReaderEngine: React.FC = () => {
   };
 
   const handleSelectChapter = (index: number) => {
+    registerUserActivity();
     const percent = Math.round(((index + 1) / totalChapters) * 100);
     updateReadingProgress(activeBook.id, index, percent, index + 1);
     setShowTocModal(false);
@@ -111,6 +153,7 @@ export const ReaderEngine: React.FC = () => {
   };
 
   const handleAddBookmark = () => {
+    registerUserActivity();
     const snippet = currentChapter.content.slice(0, 100) + '...';
     addBookmark(activeBook.id, snippet);
     triggerToast('Bookmark adicionado com sucesso! 🔖');
@@ -120,6 +163,12 @@ export const ReaderEngine: React.FC = () => {
     if (settings.fontFamily === 'Serif') return Platform.OS === 'web' ? 'Georgia, serif' : 'serif';
     if (settings.fontFamily === 'Monospace') return Platform.OS === 'web' ? 'Courier New, monospace' : 'monospace';
     return Platform.OS === 'web' ? 'system-ui, -apple-system, sans-serif' : 'sans-serif';
+  };
+
+  const formatTimer = (totalSecs: number) => {
+    const mins = Math.floor(totalSecs / 60);
+    const secs = totalSecs % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
   return (
@@ -151,11 +200,15 @@ export const ReaderEngine: React.FC = () => {
         </View>
 
         <View style={styles.topRightActions}>
-          {/* Active session timer & XP indicator */}
+          {/* Active focus timer with idle status indicator */}
           <View style={[styles.xpSessionBadge, { backgroundColor: currentTheme.bg }]}>
-            <Zap size={14} color={AppleColors.yellow} fill={AppleColors.yellow} />
-            <Text style={[styles.xpSessionText, { color: currentTheme.uiText }]}>
-              {Math.floor(sessionSeconds / 60)}m ({Math.round(sessionSeconds * 0.25)} XP)
+            {isIdle ? (
+              <PauseCircle size={14} color={AppleColors.orange} />
+            ) : (
+              <Zap size={14} color={AppleColors.yellow} fill={AppleColors.yellow} />
+            )}
+            <Text style={[styles.xpSessionText, { color: isIdle ? AppleColors.orange : currentTheme.uiText }]}>
+              {formatTimer(sessionSeconds)} {isIdle ? '(Pausa)' : ''}
             </Text>
           </View>
 
@@ -178,6 +231,9 @@ export const ReaderEngine: React.FC = () => {
         ref={scrollViewRef}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={true}
+        onScroll={registerUserActivity}
+        scrollEventThrottle={1000}
+        onTouchStart={registerUserActivity}
       >
         <View style={styles.readerPaper}>
           <Text style={[styles.chapterHeading, { color: currentTheme.text, fontFamily: getFontFamilyStyle() }]}>
@@ -198,7 +254,7 @@ export const ReaderEngine: React.FC = () => {
             {currentChapter.content}
           </Text>
 
-          {/* End of chapter pagination buttons */}
+          {/* Creative Completion & Navigation Bar */}
           <View style={styles.chapterNavigationRow}>
             <TouchableOpacity
               style={[
@@ -209,8 +265,18 @@ export const ReaderEngine: React.FC = () => {
               onPress={handlePrevChapter}
               disabled={currentChapterIndex === 0}
             >
-              <ChevronLeft size={20} color={currentTheme.uiText} />
-              <Text style={[styles.navButtonText, { color: currentTheme.uiText }]}>Capítulo Anterior</Text>
+              <ChevronLeft size={18} color={currentTheme.uiText} />
+              <Text style={[styles.navButtonText, { color: currentTheme.uiText }]}>Anterior</Text>
+            </TouchableOpacity>
+
+            {/* CREATIVE CHAPTER FINISH BUTTON */}
+            <TouchableOpacity
+              style={styles.completeChapterBtn}
+              onPress={handleCompleteChapter}
+              activeOpacity={0.8}
+            >
+              <Sparkles size={16} color="#FFF" />
+              <Text style={styles.completeChapterText}>Absorver Capítulo (+50 XP)</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -222,8 +288,8 @@ export const ReaderEngine: React.FC = () => {
               onPress={handleNextChapter}
               disabled={currentChapterIndex === totalChapters - 1}
             >
-              <Text style={[styles.navButtonText, { color: '#FFF' }]}>Próximo Capítulo</Text>
-              <ChevronRight size={20} color="#FFF" />
+              <Text style={[styles.navButtonText, { color: '#FFF' }]}>Próximo</Text>
+              <ChevronRight size={18} color="#FFF" />
             </TouchableOpacity>
           </View>
         </View>
@@ -410,16 +476,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 70,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.88)',
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 20,
     zIndex: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 214, 10, 0.4)',
   },
   toastText: {
     color: '#FFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 
   topBar: {
@@ -427,7 +495,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingTop: Platform.OS === 'ios' ? 14 : 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
   },
   iconButton: {
@@ -435,7 +504,7 @@ const styles = StyleSheet.create({
   },
   titleSection: {
     flex: 1,
-    marginHorizontal: 12,
+    marginHorizontal: 10,
   },
   bookTitleHeader: {
     fontSize: 14,
@@ -448,7 +517,7 @@ const styles = StyleSheet.create({
   topRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   xpSessionBadge: {
     flexDirection: 'row',
@@ -464,7 +533,7 @@ const styles = StyleSheet.create({
   },
 
   scrollContent: {
-    paddingVertical: 30,
+    paddingVertical: 24,
     paddingHorizontal: 20,
     alignItems: 'center',
   },
@@ -490,21 +559,40 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.08)',
+    gap: 8,
   },
   navButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 16,
+    gap: 4,
+    paddingHorizontal: 12,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 14,
   },
   navButtonDisabled: {
     opacity: 0.3,
   },
   navButtonText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
+  },
+  completeChapterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: AppleColors.purple,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 14,
+    shadowColor: AppleColors.purple,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  completeChapterText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 
   bottomBar: {
@@ -512,7 +600,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingTop: 10,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.06)',
   },
