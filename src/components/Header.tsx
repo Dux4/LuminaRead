@@ -60,7 +60,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: Platform.OS === 'ios' ? 14 : 16,
+    paddingTop: Platform.OS === 'web' ? 16 : 48,
     paddingBottom: 16,
     backgroundColor: 'rgba(11, 11, 14, 0.98)',
     borderBottomWidth: 1,

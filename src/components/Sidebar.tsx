@@ -216,10 +216,11 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(18, 18, 24, 0.98)',
     borderTopWidth: 1,
     borderTopColor: AppleColors.surfaceBorder,
-    paddingTop: 12,
-    paddingBottom: Platform.OS === 'ios' ? 26 : 16,
+    paddingTop: 14,
+    paddingBottom: Platform.OS === 'web' ? 16 : 38,
     paddingHorizontal: 12,
     justifyContent: 'space-around',
+    elevation: 20,
   },
   mobileNavItem: {
     alignItems: 'center',

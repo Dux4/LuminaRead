@@ -185,9 +185,9 @@ export const ReaderEngine: React.FC = () => {
         <TouchableOpacity
           style={styles.iconButton}
           onPress={() => setActiveView('library')}
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
         >
-          <ChevronLeft size={22} color={currentTheme.uiText} />
+          <ChevronLeft size={24} color={currentTheme.uiText} />
         </TouchableOpacity>
 
         <View style={styles.titleSection}>
@@ -254,43 +254,47 @@ export const ReaderEngine: React.FC = () => {
             {currentChapter.content}
           </Text>
 
-          {/* Creative Completion & Navigation Bar */}
-          <View style={styles.chapterNavigationRow}>
+          {/* CREATIVE & PROMINENT CHAPTER COMPLETION SECTION */}
+          <View style={styles.completionSectionContainer}>
+            {/* LARGE PRIMARY FINISH BUTTON */}
             <TouchableOpacity
-              style={[
-                styles.navButton,
-                currentChapterIndex === 0 && styles.navButtonDisabled,
-                { backgroundColor: currentTheme.uiBg },
-              ]}
-              onPress={handlePrevChapter}
-              disabled={currentChapterIndex === 0}
-            >
-              <ChevronLeft size={18} color={currentTheme.uiText} />
-              <Text style={[styles.navButtonText, { color: currentTheme.uiText }]}>Anterior</Text>
-            </TouchableOpacity>
-
-            {/* CREATIVE CHAPTER FINISH BUTTON */}
-            <TouchableOpacity
-              style={styles.completeChapterBtn}
+              style={styles.bigCompleteBtn}
               onPress={handleCompleteChapter}
               activeOpacity={0.8}
             >
-              <Sparkles size={16} color="#FFF" />
-              <Text style={styles.completeChapterText}>Absorver Capítulo (+50 XP)</Text>
+              <Sparkles size={22} color="#FFF" />
+              <Text style={styles.bigCompleteBtnText}>CONCLUÍ O CAPÍTULO (+50 XP)</Text>
+              <CheckCircle2 size={20} color="#FFF" />
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={[
-                styles.navButton,
-                currentChapterIndex === totalChapters - 1 && styles.navButtonDisabled,
-                { backgroundColor: AppleColors.blue },
-              ]}
-              onPress={handleNextChapter}
-              disabled={currentChapterIndex === totalChapters - 1}
-            >
-              <Text style={[styles.navButtonText, { color: '#FFF' }]}>Próximo</Text>
-              <ChevronRight size={18} color="#FFF" />
-            </TouchableOpacity>
+            {/* PREV / NEXT BUTTONS ROW BELOW */}
+            <View style={styles.chapterNavigationRow}>
+              <TouchableOpacity
+                style={[
+                  styles.navButton,
+                  currentChapterIndex === 0 && styles.navButtonDisabled,
+                  { backgroundColor: currentTheme.uiBg },
+                ]}
+                onPress={handlePrevChapter}
+                disabled={currentChapterIndex === 0}
+              >
+                <ChevronLeft size={18} color={currentTheme.uiText} />
+                <Text style={[styles.navButtonText, { color: currentTheme.uiText }]}>Capítulo Anterior</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.navButton,
+                  currentChapterIndex === totalChapters - 1 && styles.navButtonDisabled,
+                  { backgroundColor: AppleColors.blue },
+                ]}
+                onPress={handleNextChapter}
+                disabled={currentChapterIndex === totalChapters - 1}
+              >
+                <Text style={[styles.navButtonText, { color: '#FFF' }]}>Próximo Capítulo</Text>
+                <ChevronRight size={18} color="#FFF" />
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </ScrollView>
@@ -495,12 +499,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingTop: Platform.OS === 'ios' ? 14 : 12,
-    paddingBottom: 12,
+    paddingTop: Platform.OS === 'web' ? 16 : 48,
+    paddingBottom: 16,
     borderBottomWidth: 1,
   },
   iconButton: {
-    padding: 6,
+    padding: 8,
   },
   titleSection: {
     flex: 1,
@@ -551,22 +555,50 @@ const styles = StyleSheet.create({
     textAlign: 'justify',
   },
 
+  completionSectionContainer: {
+    marginTop: 40,
+    paddingTop: 24,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(0,0,0,0.08)',
+    gap: 16,
+    width: '100%',
+  },
+  bigCompleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: AppleColors.purple,
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderRadius: 18,
+    width: '100%',
+    shadowColor: AppleColors.purple,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+  },
+  bigCompleteBtnText: {
+    color: '#FFF',
+    fontSize: 15,
+    fontWeight: '800',
+    letterSpacing: 0.5,
+  },
   chapterNavigationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 40,
-    paddingTop: 20,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.08)',
-    gap: 8,
+    width: '100%',
+    gap: 10,
   },
   navButton: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 4,
     paddingHorizontal: 12,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 14,
   },
   navButtonDisabled: {
@@ -576,32 +608,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
   },
-  completeChapterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: AppleColors.purple,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 14,
-    shadowColor: AppleColors.purple,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-  },
-  completeChapterText: {
-    color: '#FFF',
-    fontSize: 12,
-    fontWeight: '700',
-  },
 
   bottomBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: Platform.OS === 'ios' ? 24 : 12,
+    paddingTop: 12,
+    paddingBottom: Platform.OS === 'web' ? 16 : 40,
     borderTopWidth: 1,
     borderTopColor: 'rgba(0,0,0,0.06)',
   },
