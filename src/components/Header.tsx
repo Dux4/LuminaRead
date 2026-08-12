@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Platform } from 'react-native';
 import { Flame, Zap, Award, Target } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
 import { AppleColors } from '../theme/colors';

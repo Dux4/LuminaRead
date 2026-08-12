@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, useWindowDimensions, Platform } from 'react-native';
 import { LayoutDashboard, BookOpen, Trophy, Settings as SettingsIcon, Book } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
 import { AppleColors } from '../theme/colors';
