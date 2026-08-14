@@ -5,8 +5,9 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
   Modal,
+  TextInput,
+  Platform,
 } from 'react-native';
 import {
   Settings as SettingsIcon,
@@ -16,6 +17,8 @@ import {
   BookOpen,
   Info,
   ShieldCheck,
+  Download,
+  Upload,
   Check,
 } from 'lucide-react-native';
 import { useApp } from '../context/AppContext';
@@ -27,11 +30,13 @@ export const SettingsView: React.FC = () => {
     gamification,
     resetAllData,
     restoreSampleBooks,
-    updateSettings,
-    settings,
+    books,
+    addBook,
   } = useApp();
 
   const [showConfirmResetModal, setShowConfirmResetModal] = useState<boolean>(false);
+  const [showBackupModal, setShowBackupModal] = useState<boolean>(false);
+  const [backupJsonStr, setBackupJsonStr] = useState<string>('');
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const triggerToast = (msg: string) => {
@@ -48,6 +53,32 @@ export const SettingsView: React.FC = () => {
     resetAllData();
     setShowConfirmResetModal(false);
     triggerToast('Todos os dados foram resetados.');
+  };
+
+  const handleGenerateBackup = () => {
+    const data = {
+      books,
+      gamification,
+      exportedAt: new Date().toISOString(),
+    };
+    setBackupJsonStr(JSON.stringify(data, null, 2));
+    setShowBackupModal(true);
+  };
+
+  const handleRestoreFromBackupText = () => {
+    try {
+      if (!backupJsonStr.trim()) return;
+      const parsed = JSON.parse(backupJsonStr);
+      if (parsed.books && Array.isArray(parsed.books)) {
+        parsed.books.forEach((b: any) => addBook(b));
+        triggerToast('Backup importado e mesclado com sucesso! 🎉');
+        setShowBackupModal(false);
+      } else {
+        alert('Formato de backup inválido.');
+      }
+    } catch {
+      alert('Erro ao processar código de backup JSON.');
+    }
   };
 
   return (
@@ -82,7 +113,6 @@ export const SettingsView: React.FC = () => {
                 key={mins}
                 style={[styles.targetPill, isSelected && styles.targetPillActive]}
                 onPress={() => {
-                  // update target
                   gamification.dailyTargetMinutes = mins;
                   triggerToast(`Meta diária alterada para ${mins} minutos! 🎯`);
                 }}
@@ -100,8 +130,20 @@ export const SettingsView: React.FC = () => {
       <GlassCard style={styles.sectionCard}>
         <View style={styles.sectionHeaderRow}>
           <BookOpen size={20} color={AppleColors.purple} />
-          <Text style={styles.sectionTitle}>GERENCIAMENTO DE ARMAZENAMENTO</Text>
+          <Text style={styles.sectionTitle}>GERENCIAMENTO DE ARMAZENAMENTO E BACKUP</Text>
         </View>
+
+        <TouchableOpacity
+          style={styles.actionRowBtn}
+          onPress={handleGenerateBackup}
+          activeOpacity={0.7}
+        >
+          <Download size={18} color={AppleColors.green} />
+          <View style={styles.actionBtnTextFlex}>
+            <Text style={styles.actionBtnTitle}>Backup da Biblioteca (JSON)</Text>
+            <Text style={styles.actionBtnSub}>Exporte ou importe seus livros e progresso entre dispositivos.</Text>
+          </View>
+        </TouchableOpacity>
 
         <TouchableOpacity
           style={styles.actionRowBtn}
@@ -142,9 +184,47 @@ export const SettingsView: React.FC = () => {
 
         <View style={styles.versionBadge}>
           <Info size={14} color={AppleColors.textTertiary} />
-          <Text style={styles.versionText}>LuminaRead v1.0.0 • React Native Expo Cross-Platform</Text>
+          <Text style={styles.versionText}>LuminaRead v1.0.0 • Pronto para Lançamento Nativar Multiplataforma</Text>
         </View>
       </GlassCard>
+
+      {/* Backup Export / Import Modal */}
+      <Modal visible={showBackupModal} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.backupBox}>
+            <Text style={styles.confirmTitle}>Backup & Sincronização</Text>
+            <Text style={styles.confirmSub}>
+              Copie o código JSON abaixo para salvar seus livros ou cole um backup de outro celular para restaurar.
+            </Text>
+
+            <TextInput
+              style={styles.backupTextArea}
+              multiline
+              value={backupJsonStr}
+              onChangeText={setBackupJsonStr}
+              placeholder="Cole seu código de backup aqui..."
+              placeholderTextColor={AppleColors.textTertiary}
+            />
+
+            <View style={styles.confirmActionsRow}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setShowBackupModal(false)}
+              >
+                <Text style={styles.cancelBtnText}>Fechar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.importBackupBtn}
+                onPress={handleRestoreFromBackupText}
+              >
+                <Upload size={16} color="#FFF" />
+                <Text style={styles.importBackupText}>Importar Backup</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       {/* Reset Confirmation Modal */}
       <Modal visible={showConfirmResetModal} transparent animationType="fade">
@@ -186,16 +266,18 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 20,
     alignSelf: 'center',
-    backgroundColor: 'rgba(0,0,0,0.85)',
+    backgroundColor: 'rgba(0,0,0,0.88)',
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 12,
     borderRadius: 20,
     zIndex: 100,
+    borderWidth: 1,
+    borderColor: 'rgba(10, 132, 255, 0.3)',
   },
   toastText: {
     color: '#FFF',
     fontSize: 13,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   header: {
     marginBottom: 4,
@@ -318,6 +400,26 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: AppleColors.surfaceBorder,
   },
+  backupBox: {
+    maxWidth: 500,
+    width: '100%',
+    backgroundColor: AppleColors.surface,
+    borderRadius: 24,
+    padding: 24,
+    gap: 14,
+    borderWidth: 1,
+    borderColor: AppleColors.surfaceBorder,
+  },
+  backupTextArea: {
+    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    borderRadius: 14,
+    padding: 12,
+    color: AppleColors.textPrimary,
+    height: 160,
+    fontFamily: Platform.OS === 'web' ? 'monospace' : 'monospace',
+    fontSize: 12,
+    textAlignVertical: 'top',
+  },
   confirmTitle: {
     fontSize: 18,
     fontWeight: '800',
@@ -335,20 +437,34 @@ const styles = StyleSheet.create({
   },
   cancelBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: 'rgba(255, 255, 255, 0.08)',
   },
   cancelBtnText: {
     color: AppleColors.textPrimary,
     fontWeight: '600',
   },
+  importBackupBtn: {
+    flex: 1.5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 14,
+    backgroundColor: AppleColors.green,
+  },
+  importBackupText: {
+    color: '#FFF',
+    fontWeight: '700',
+  },
   deleteConfirmBtn: {
     flex: 1,
-    paddingVertical: 10,
+    paddingVertical: 12,
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 14,
     backgroundColor: AppleColors.red,
   },
   deleteConfirmText: {

@@ -1,4 +1,5 @@
 import JSZip from 'jszip';
+import { Platform } from 'react-native';
 import { Book, Chapter, BookFormat } from '../types';
 
 const COVER_COLORS = ['#5856D6', '#FF9F0A', '#FF375F', '#30D158', '#0A84FF', '#BF5AF2', '#64D2FF'];
@@ -10,6 +11,32 @@ export interface ParsedFileResult {
   chapters: Chapter[];
   coverColor: string;
 }
+
+export const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
+  const binaryString = decodeBase64Polyfill(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes.buffer;
+};
+
+const decodeBase64Polyfill = (input: string): string => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
+  let str = input.replace(/=+$/, '');
+  let output = '';
+  for (
+    let bc = 0, bs = 0, buffer: number, idx = 0;
+    (buffer = str.charAt(idx++));
+    ~buffer && ((bs = bc % 4 ? bs * 64 + buffer : buffer), bc++ % 4)
+      ? (output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6))))
+      : 0
+  ) {
+    buffer = chars.indexOf(buffer);
+  }
+  return output;
+};
 
 export const parseUploadedFile = async (
   fileName: string,
@@ -39,7 +66,7 @@ const parseTxtOrMdFile = (
   coverColor: string
 ): ParsedFileResult => {
   const cleanContent = content.trim();
-  const rawChapters = cleanContent.split(/(?=\n#{1,3}\s|\nCapítulo\s|\nChapter\s)/i);
+  const rawChapters = cleanContent.split(/(?=\n#{1,3}\s|\nCapítulo\s|\nChapter\s|\nPart\s|\nParte\s)/i);
 
   const chapters: Chapter[] = rawChapters
     .map((chunk, index) => {

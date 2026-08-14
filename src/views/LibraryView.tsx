@@ -21,12 +21,16 @@ import {
   X,
   UploadCloud,
   CheckCircle,
+  FolderPlus,
+  Sparkles,
 } from 'lucide-react-native';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system';
 import { useApp } from '../context/AppContext';
 import { GlassCard } from '../components/GlassCard';
 import { AppleColors } from '../theme/colors';
 import { BookFormat, Book } from '../types';
-import { parseUploadedFile } from '../services/bookParser';
+import { parseUploadedFile, base64ToArrayBuffer } from '../services/bookParser';
 
 export const LibraryView: React.FC = () => {
   const { books, selectBook, deleteBook, addBook } = useApp();
@@ -52,7 +56,8 @@ export const LibraryView: React.FC = () => {
     return matchesSearch && matchesFormat;
   });
 
-  const handleFileUpload = async (event: any) => {
+  // Browser file picker for Web
+  const handleWebFileUpload = async (event: any) => {
     try {
       const file = event.target?.files?.[0];
       if (!file) return;
@@ -92,7 +97,62 @@ export const LibraryView: React.FC = () => {
         reader.readAsText(file);
       }
     } catch (err) {
-      console.error('File import error:', err);
+      console.error('Web file import error:', err);
+      setIsParsing(false);
+    }
+  };
+
+  // Native Mobile File Picker for Android / iOS devices
+  const handlePickDocumentMobile = async () => {
+    try {
+      setIsParsing(true);
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*', // Accepts EPUB, PDF, TXT, MD
+        copyToCacheDirectory: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const fileName = asset.name;
+        const fileUri = asset.uri;
+
+        let fileContent: string | ArrayBuffer = '';
+        if (fileName.endsWith('.epub') || fileName.endsWith('.pdf')) {
+          const base64Str = await FileSystem.readAsStringAsync(fileUri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          fileContent = base64ToArrayBuffer(base64Str);
+        } else {
+          fileContent = await FileSystem.readAsStringAsync(fileUri, {
+            encoding: FileSystem.EncodingType.UTF8,
+          });
+        }
+
+        const parsed = await parseUploadedFile(fileName, fileContent);
+        const newBook: Book = {
+          id: `user-book-${Date.now()}`,
+          title: parsed.title,
+          author: parsed.author,
+          coverColor: parsed.coverColor,
+          format: parsed.format,
+          chapters: parsed.chapters,
+          currentChapterIndex: 0,
+          currentProgressPercent: 0,
+          totalPages: parsed.chapters.length * 10,
+          currentPage: 1,
+          bookmarks: [],
+          addedAt: new Date().toISOString(),
+          fileSize: `${Math.round((asset.size || 2048) / 1024)} KB`,
+        };
+
+        addBook(newBook);
+        setIsParsing(false);
+        setShowImportModal(false);
+      } else {
+        setIsParsing(false);
+      }
+    } catch (err) {
+      console.error('Mobile Document Picker error:', err);
       setIsParsing(false);
     }
   };
@@ -256,27 +316,27 @@ export const LibraryView: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            {/* Browser File Upload Input */}
+            {/* Document Picker Box */}
             <View style={styles.uploadArea}>
-              <UploadCloud size={36} color={AppleColors.blue} />
-              <Text style={styles.uploadTitle}>Selecione um arquivo do computador ou celular</Text>
+              <UploadCloud size={40} color={AppleColors.blue} />
+              <Text style={styles.uploadTitle}>Selecione um arquivo do celular ou computador</Text>
               <Text style={styles.uploadSub}>Suporta extensões .epub, .pdf, .txt e .md</Text>
 
               {Platform.OS === 'web' ? (
                 <input
                   type="file"
                   accept=".epub,.pdf,.txt,.md"
-                  onChange={handleFileUpload}
+                  onChange={handleWebFileUpload}
                   style={styles.webFileInput as any}
                 />
               ) : (
                 <TouchableOpacity
                   style={styles.nativePickBtn}
-                  onPress={() => {
-                    alert('Para testar arquivos locais, use o campo de texto abaixo ou a versão Web do navegador!');
-                  }}
+                  onPress={handlePickDocumentMobile}
+                  activeOpacity={0.8}
                 >
-                  <Text style={styles.nativePickText}>Escolher Arquivo</Text>
+                  <FolderPlus size={18} color="#FFF" />
+                  <Text style={styles.nativePickText}>Abrir Arquivos do Celular</Text>
                 </TouchableOpacity>
               )}
 
@@ -291,7 +351,7 @@ export const LibraryView: React.FC = () => {
             {/* Manual Paste Text Alternative */}
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>OU COLE O TEXTO</Text>
+              <Text style={styles.dividerText}>OU COLE O TEXTO DIRETO</Text>
               <View style={styles.dividerLine} />
             </View>
 
@@ -579,16 +639,23 @@ const styles = StyleSheet.create({
     cursor: 'pointer',
   },
   nativePickBtn: {
-    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 14,
     backgroundColor: AppleColors.blue,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 14,
+    shadowColor: AppleColors.blue,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   nativePickText: {
     color: '#FFF',
     fontWeight: '700',
-    fontSize: 12,
+    fontSize: 13,
   },
   parsingRow: {
     flexDirection: 'row',
