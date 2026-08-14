@@ -1,5 +1,4 @@
 import JSZip from 'jszip';
-import { Platform } from 'react-native';
 import { Book, Chapter, BookFormat } from '../types';
 
 const COVER_COLORS = ['#5856D6', '#FF9F0A', '#FF375F', '#30D158', '#0A84FF', '#BF5AF2', '#64D2FF'];
@@ -22,19 +21,30 @@ export const base64ToArrayBuffer = (base64: string): ArrayBuffer => {
   return bytes.buffer;
 };
 
-const decodeBase64Polyfill = (input: string): string => {
+const decodeBase64Polyfill = (base64: string): string => {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/=';
-  let str = input.replace(/=+$/, '');
+  let str = base64.replace(/[^A-Za-z0-9+/=]/g, '');
   let output = '';
-  for (
-    let bc = 0, bs = 0, buffer: number, idx = 0;
-    (buffer = str.charAt(idx++));
-    ~buffer && ((bs = bc % 4 ? bs * 64 + buffer : buffer), bc++ % 4)
-      ? (output += String.fromCharCode(255 & (bs >> ((-2 * bc) & 6))))
-      : 0
-  ) {
-    buffer = chars.indexOf(buffer);
+
+  for (let i = 0; i < str.length; i += 4) {
+    const enc1 = chars.indexOf(str.charAt(i));
+    const enc2 = chars.indexOf(str.charAt(i + 1));
+    const enc3 = chars.indexOf(str.charAt(i + 2));
+    const enc4 = chars.indexOf(str.charAt(i + 3));
+
+    const chr1 = (enc1 << 2) | (enc2 >> 4);
+    const chr2 = ((enc2 & 15) << 4) | (enc3 >> 2);
+    const chr3 = ((enc3 & 3) << 6) | enc4;
+
+    output += String.fromCharCode(chr1);
+    if (enc3 !== 64 && enc3 !== -1) {
+      output += String.fromCharCode(chr2);
+    }
+    if (enc4 !== 64 && enc4 !== -1) {
+      output += String.fromCharCode(chr3);
+    }
   }
+
   return output;
 };
 

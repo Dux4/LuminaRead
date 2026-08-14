@@ -119,12 +119,12 @@ export const LibraryView: React.FC = () => {
         let fileContent: string | ArrayBuffer = '';
         if (fileName.endsWith('.epub') || fileName.endsWith('.pdf')) {
           const base64Str = await FileSystem.readAsStringAsync(fileUri, {
-            encoding: FileSystem.EncodingType.Base64,
+            encoding: 'base64',
           });
           fileContent = base64ToArrayBuffer(base64Str);
         } else {
           fileContent = await FileSystem.readAsStringAsync(fileUri, {
-            encoding: FileSystem.EncodingType.UTF8,
+            encoding: 'utf8',
           });
         }
 
