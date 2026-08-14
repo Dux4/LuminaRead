@@ -59,7 +59,7 @@ export const parseUploadedFile = async (
   if (extension === 'epub') {
     return await parseEpubFile(baseName, fileContent, randomColor);
   } else if (extension === 'pdf') {
-    return parsePdfOrTxtFile(baseName, fileContent, 'PDF', randomColor);
+    return await parsePdfFile(baseName, fileContent, randomColor);
   } else if (extension === 'md') {
     return parseTxtOrMdFile(baseName, typeof fileContent === 'string' ? fileContent : new TextDecoder().decode(fileContent), 'MD', randomColor);
   } else {
@@ -114,24 +114,115 @@ const parseTxtOrMdFile = (
   };
 };
 
-const parsePdfOrTxtFile = (
+// Robust PDF Text Extractor - Filters out PDF binary syntax & streams
+const parsePdfFile = async (
   title: string,
   fileContent: string | ArrayBuffer,
-  format: BookFormat,
   coverColor: string
-): ParsedFileResult => {
-  let textStr = '';
+): Promise<ParsedFileResult> => {
+  const extractedText = extractTextFromPdfBinary(fileContent);
+  return parseTxtOrMdFile(title, extractedText, 'PDF', coverColor);
+};
+
+const extractTextFromPdfBinary = (fileContent: string | ArrayBuffer): string => {
+  let pdfString = '';
+  
   if (typeof fileContent === 'string') {
-    textStr = fileContent;
+    pdfString = fileContent;
   } else {
-    try {
-      textStr = new TextDecoder('utf-8').decode(fileContent);
-    } catch {
-      textStr = 'Conteúdo extraído do PDF.';
+    const bytes = new Uint8Array(fileContent);
+    let str = '';
+    const chunkSize = 8192;
+    for (let i = 0; i < bytes.length; i += chunkSize) {
+      str += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+    }
+    pdfString = str;
+  }
+
+  const extractedChunks: string[] = [];
+
+  // Extract PDF text literals: (Text string) Tj or (Text string) TJ
+  const textMatches = pdfString.match(/\(([^()]{2,})\)\s*(?:Tj|TJ|'|")/g);
+  if (textMatches && textMatches.length > 0) {
+    textMatches.forEach(m => {
+      const clean = m
+        .replace(/^\(/, '')
+        .replace(/\)\s*(?:Tj|TJ|'|")$/, '')
+        .replace(/\\([()\\])/g, '$1')
+        .trim();
+
+      if (
+        clean.length > 1 &&
+        !clean.startsWith('/') &&
+        !clean.startsWith('%') &&
+        !clean.includes('Helvetica') &&
+        !clean.includes('ReportLab')
+      ) {
+        extractedChunks.push(clean);
+      }
+    });
+  }
+
+  // Extract text inside stream blocks
+  const streamRegex = /stream[\r\n]+([\s\S]*?)[\r\n]+endstream/g;
+  let match;
+  while ((match = streamRegex.exec(pdfString)) !== null) {
+    const streamContent = match[1];
+    const innerText = streamContent.match(/\(([^()]{2,})\)/g);
+    if (innerText) {
+      innerText.forEach(t => {
+        const clean = t.slice(1, -1).replace(/\\([()\\])/g, '$1').trim();
+        if (
+          clean.length > 2 &&
+          !/^\/[A-Z0-9]/i.test(clean) &&
+          !clean.includes('Font') &&
+          !clean.includes('MediaBox') &&
+          !clean.includes('ReportLab')
+        ) {
+          extractedChunks.push(clean);
+        }
+      });
     }
   }
 
-  return parseTxtOrMdFile(title, textStr, format, coverColor);
+  // Fallback: If no PDF text objects found, clean raw lines filtering PDF syntax noise
+  if (extractedChunks.length < 3) {
+    const rawLines = pdfString.split(/[\r\n]+/);
+    rawLines.forEach(line => {
+      if (
+        line.startsWith('%') ||
+        line.includes('obj') ||
+        line.includes('endobj') ||
+        line.includes('stream') ||
+        line.includes('endstream') ||
+        line.includes('/MediaBox') ||
+        line.includes('/Resources') ||
+        line.includes('/Font') ||
+        line.includes('/Type') ||
+        line.includes('/Catalog') ||
+        line.includes('/ProcSet') ||
+        line.includes('/BaseFont') ||
+        line.includes('/Encoding') ||
+        line.includes('<<') ||
+        line.includes('>>') ||
+        line.includes('xref') ||
+        line.includes('trailer')
+      ) {
+        return;
+      }
+      const cleanLine = line
+        .replace(/[^a-zA-Z0-9áéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ\s.,!?:;\-–—"'()]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+
+      if (cleanLine.length > 15) {
+        extractedChunks.push(cleanLine);
+      }
+    });
+  }
+
+  const fullText = extractedChunks.join('\n\n');
+  return fullText.trim() || 'Este PDF contém páginas digitalizadas como imagens. Para melhor experiência de leitura, use um PDF com texto pesquisável.';
 };
 
 const parseEpubFile = async (
@@ -147,7 +238,6 @@ const parseEpubFile = async (
     let bookAuthor = 'Autor EPUB';
     const chapters: Chapter[] = [];
 
-    // Search HTML/XHTML content files inside the EPUB zip
     const htmlFiles = Object.keys(loadedZip.files).filter(
       filename => filename.endsWith('.xhtml') || filename.endsWith('.html') || filename.endsWith('.htm')
     );
@@ -160,7 +250,6 @@ const parseEpubFile = async (
         const cleanText = stripHtmlTags(rawHtml);
 
         if (cleanText.length > 50) {
-          // Extract chapter title from h1, h2, title or first line
           const titleMatch = rawHtml.match(/<h[1-2][^>]*>(.*?)<\/h[1-2]>/i) || rawHtml.match(/<title[^>]*>(.*?)<\/title>/i);
           const chTitle = titleMatch ? stripHtmlTags(titleMatch[1]).trim() : `Capítulo ${chapterIndex}`;
 
